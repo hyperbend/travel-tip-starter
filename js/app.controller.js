@@ -2,6 +2,8 @@ import { utilService } from './services/util.service.js'
 import { locService } from './services/loc.service.js'
 import { mapService } from './services/map.service.js'
 
+let gUserPos = null
+
 window.onload = onInit
 
 // To make things easier in this project structure 
@@ -37,18 +39,22 @@ function renderLocs(locs) {
 
     var strHTML = locs.map(loc => {
         const className = (loc.id === selectedLocId) ? 'active' : ''
+
+        const distanceStr = (gUserPos)
+            ? ` | Distance: ${utilService.getDistance(gUserPos, loc.geo)} km`
+            : ''
+
         return `
         <li class="loc ${className}" data-id="${loc.id}">
             <h4>  
                 <span>${loc.name}</span>
                 <span title="${loc.rate} stars">${'★'.repeat(loc.rate)}</span>
             </h4>
-            <p class="muted">
-                Created: ${utilService.elapsedTime(loc.createdAt)}
-                ${(loc.createdAt !== loc.updatedAt) ?
-                ` | Updated: ${utilService.elapsedTime(loc.updatedAt)}`
-                : ''}
-            </p>
+        <p class="muted">
+          Created: ${utilService.elapsedTime(loc.createdAt)}
+          ${(loc.createdAt !== loc.updatedAt) ? ` | Updated: ${utilService.elapsedTime(loc.updatedAt)}` : ''}
+          ${distanceStr}
+        </p>
             <div class="loc-btns">     
                <button title="Delete" onclick="app.onRemoveLoc('${loc.id}')">🗑️</button>
                <button title="Edit" onclick="app.onUpdateLoc('${loc.id}')">✏️</button>
@@ -125,6 +131,7 @@ function loadAndRenderLocs() {
 function onPanToUserPos() {
     mapService.getUserPosition()
         .then(latLng => {
+            gUserPos = latLng
             mapService.panTo({ ...latLng, zoom: 15 })
             unDisplayLoc()
             loadAndRenderLocs()
@@ -174,13 +181,23 @@ function displayLoc(loc) {
 
     const el = document.querySelector('.selected-loc')
     el.querySelector('.loc-name').innerText = loc.name
-    el.querySelector('.loc-address').innerText = loc.geo.address
     el.querySelector('.loc-rate').innerHTML = '★'.repeat(loc.rate)
+
+    // כתובת + מרחק
+    const baseAddr = loc.geo.address
+    if (gUserPos) {
+        const km = utilService.getDistance(gUserPos, loc.geo)
+        el.querySelector('.loc-address').innerText = `${baseAddr}  •  ${km} km away`
+    } else {
+        el.querySelector('.loc-address').innerText = baseAddr
+    }
+
     el.querySelector('[name=loc-copier]').value = window.location
     el.classList.add('show')
 
     utilService.updateQueryParams({ locId: loc.id })
 }
+
 
 function unDisplayLoc() {
     utilService.updateQueryParams({ locId: '' })
